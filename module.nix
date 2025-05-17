@@ -12,7 +12,7 @@ in
 {
   options.programs.nini = {
     enable = lib.mkEnableOption "nini";
-    package = lib.mkPackageOption self.packages.${pkgs.system} "nini" { };
+    package = lib.mkPackageOption self.packages.${pkgs.system} "default" { };
     flakeref = lib.mkOption {
       type = types.str;
       description = ''
