@@ -34,7 +34,7 @@ if [[ -v NINI_FLAKEREF && -n $NINI_FLAKEREF ]]; then
 fi
 flags=(
     --refresh
-    --use-remote-sudo
+    --sudo
     --no-write-lock-file
 )
 verbose=false
