@@ -7,6 +7,7 @@ set -o pipefail
 flags=(
     --refresh
     --sudo
+    --no-update-lock-file
     --no-write-lock-file
 )
 
