@@ -1,22 +1,92 @@
-#!/usr/bin/env bash
+#!/usr/bin/env fish
 
-set -o errexit
-set -o nounset
-set -o pipefail
+function usage
+    echo "Usage: $(status filename) VERB [HOST...]"
+    echo
+    echo "Options:"
+    echo "  -f, --flake    The flake to use"
+    echo "  -o, --on       Where the configuration(s) will be built"
+    echo "  -v, --verbose  Verbose output"
+    echo "  -h, --help     Print this help message"
+end
 
-flags=(
-    --refresh
-    --sudo
-    --no-update-lock-file
-    --no-write-lock-file
-)
+function diag
+    for line in $argv
+        printf '%s\n' "nini: $line"
+    end
+end
 
-if [[ -v NINI_FLAKE && -n $NINI_FLAKE ]]; then
-    flags+=(--flake "$NINI_FLAKE")
-fi
+argparse f/flake= o/on= v/verbose h/help -- $argv
+or begin
+    usage >&2
+    exit 1
+end
 
-cmd=(nixos-rebuild "${flags[@]}" "$@")
+if set -q _flag_h
+    usage >&2
+    exit 0
+end
 
-echo "running ${cmd[*]}" >&2
+if test (count $argv) -lt 1
+    usage >&2
+    exit 1
+end
 
-exec "${cmd[@]}"
+set flags \
+    --refresh \
+    --sudo \
+    --no-update-lock-file \
+    --no-write-lock-file \
+    --fallback
+
+set flake .
+if test -n "$NINI_FLAKE"
+    set flake $NINI_FLAKE
+end
+if test -n "$_flag_f"
+    set flake $_flag_f
+end
+
+if test -n "$_flag_o"
+    set --append flags --build-host $_flag_o
+end
+
+if set -q _flag_v
+    set --append flags --verbose
+end
+
+set verb $argv[1]
+set --erase argv[1]
+
+if test $verb = hosts
+    if test (count $argv) -gt 0
+        usage >&2
+        exit 1
+    end
+
+    nix eval --raw $flake#nixosConfigurations --apply 'n: (builtins.concatStringsSep "\n" (builtins.attrNames n)) + "\n"'
+    exit
+end
+
+set hosts $argv
+
+if test (count $hosts) -gt 0
+    set --local failed
+    for host in $hosts
+        set --local cmd nixos-rebuild $flags --target-host $host --flake $flake#$host -- $verb
+
+        diag "Building $host" >&2
+        if not $cmd
+            set --append failed "$host: status $status: $cmd"
+        end
+    end
+
+    if test (count $failed) -gt 0
+        diag "The following hosts failed:" $failed >&2
+        exit 1
+    end
+
+    exit 0
+end
+
+exec nixos-rebuild $flags --flake $flake#(hostname) -- $verb

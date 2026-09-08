@@ -1,67 +1,59 @@
 {
   description = "nini";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-parts = {
-      url = "github:hercules-ci/flake-parts";
-      inputs.nixpkgs-lib.follows = "nixpkgs";
-    };
-    hooks = {
-      url = "github:cachix/git-hooks.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    treefmt = {
-      url = "github:numtide/treefmt-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   outputs =
     {
       self,
       nixpkgs,
-      flake-parts,
-      hooks,
-      treefmt,
-    }@inputs:
-    flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [
-        hooks.flakeModule
-        treefmt.flakeModule
-      ];
+      ...
+    }:
+    let
+      inherit (nixpkgs) lib;
 
       systems = nixpkgs.lib.systems.flakeExposed;
 
-      perSystem =
+      forAllSystems =
+        f:
+        lib.genAttrs systems (
+          system:
+          f {
+            inherit system;
+            pkgs = nixpkgs.legacyPackages.${system};
+          }
+        );
+    in
+    {
+      devShells = forAllSystems (
         {
-          config,
+          system,
           pkgs,
           ...
         }:
         {
-          treefmt = {
-            projectRootFile = "flake.nix";
-
-            programs.nixfmt = {
-              enable = true;
-              package = pkgs.nixfmt-rfc-style;
-            };
+          default = pkgs.mkShellNoCC {
+            packages = [
+              # Formatters
+              pkgs.treefmt
+              pkgs.nixfmt
+              pkgs.prettier
+              pkgs.taplo
+              pkgs.fish
+            ];
           };
+        }
+      );
 
-          pre-commit.settings.hooks = {
-            treefmt.enable = true;
-          };
+      packages = forAllSystems (
+        { pkgs, ... }:
+        {
+          default = pkgs.callPackage ./package.nix { };
+        }
+      );
 
-          devShells.default = pkgs.mkShellNoCC {
-            shellHook = ''
-              ${config.pre-commit.installationScript}
-            '';
-          };
+      nixosModules.default = import ./module.nix self;
 
-          packages.default = pkgs.callPackage ./package.nix { };
-        };
-
-      flake.nixosModules.default = import ./module.nix self;
+      formatter = forAllSystems ({ pkgs, ... }: pkgs.treefmt);
     };
 }

@@ -1,15 +1,17 @@
 {
-  writeShellApplication,
+  writers,
   nixos-rebuild,
   openssh,
+  lib,
 }:
-writeShellApplication {
-  name = "nini";
-
-  runtimeInputs = [
-    nixos-rebuild
-    openssh
+writers.writeFishBin "nini" {
+  makeWrapperArgs = [
+    "--prefix"
+    "PATH"
+    ":"
+    "${lib.makeBinPath [
+      nixos-rebuild
+      openssh
+    ]}"
   ];
-
-  text = builtins.readFile ./nini;
-}
+} (builtins.readFile ./nini)
