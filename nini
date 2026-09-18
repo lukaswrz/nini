@@ -73,7 +73,25 @@ set hosts $argv
 if test (count $hosts) -gt 0
     set --local failed
     for host in $hosts
-        set --local cmd nixos-rebuild $flags --target-host $host --flake $flake#$host -- $verb
+        set --local config $host
+        set --local target $host
+        set --local assignment (string split --max 1 -- : $host)
+
+        switch (count $assignment)
+            case 1
+            case 2
+                set config $assignment[1]
+                set target $assignment[2]
+            case '*'
+                diag "Invalid host: $host" >&2
+                exit 1
+        end
+
+        set --local cmd \
+            nixos-rebuild $flags \
+            --target-host $target \
+            --flake $flake#$config \
+            -- $verb
 
         diag "Building $host" >&2
         if not $cmd
