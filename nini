@@ -12,7 +12,7 @@ end
 
 function diag
     for line in $argv
-        printf '%s\n' "nini: $line"
+        echo "nini: $line"
     end
 end
 
@@ -64,7 +64,9 @@ if test $verb = hosts
         exit 1
     end
 
-    nix eval --raw $flake#nixosConfigurations --apply 'n: (builtins.concatStringsSep "\n" (builtins.attrNames n)) + "\n"'
+    nix eval \
+        --raw $flake#nixosConfigurations \
+        --apply 'n: (builtins.concatStringsSep "\n" (builtins.attrNames n)) + "\n"'
     exit
 end
 
